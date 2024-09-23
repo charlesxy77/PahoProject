@@ -3,7 +3,6 @@ from flask_cors import CORS
 import pandas as pd
 import pickle
 import os
-#from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 import logging
 
@@ -13,32 +12,37 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 model = None
+model_loaded_successfully = False
 
 def load_model():
-    global model
+    global model, model_loaded_successfully
     model_path = os.path.join(os.path.dirname(__file__), 'Livestock_Random_Forest_Model (1).pkl')
-    print(f"Attempting to load model from: {model_path}")
+    logger.info(f"Attempting to load model from: {model_path}")
     try:
         with open(model_path, 'rb') as f:
             model = pickle.load(f)
-        print(f"Model loaded successfully. Type: {type(model)}")
+        logger.info(f"Model loaded successfully. Type: {type(model)}")
+        model_loaded_successfully = True
     except Exception as e:
-        print(f"Error loading model: {str(e)}")
+        logger.error(f"Error loading model: {str(e)}")
+        model_loaded_successfully = False
+
+# Load the model when the module is imported
+load_model()
 
 @app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():
     if request.method == 'OPTIONS':
         return '', 204
     
-    if model is None:
-        logger.error("Model not loaded")
-        return jsonify({"error": "Model not loaded"}), 500
+    if not model_loaded_successfully:
+        logger.error("Model not loaded successfully")
+        return jsonify({"error": "Model not loaded successfully"}), 500
 
     try:
         data = request.json
-        print(f"Received data: {data}")
+        logger.info(f"Received data: {data}")
         input_data = pd.DataFrame([data])
         
         # Version mismatch handling
@@ -58,29 +62,16 @@ def predict():
             "CH4": round(predictions[0][3], 2)
         }
         
-        print(f"Prediction result: {result}")
         logger.info(f"Prediction result: {result}")
         return jsonify(result), 200
     except Exception as e:
-        print(f"Error during prediction: {str(e)}")
+        logger.error(f"Error during prediction: {str(e)}")
         return jsonify({"error": str(e)}), 400
 
 @app.route('/test', methods=['GET'])
 def test():
-    return jsonify({"message": "Backend is working!", "model_loaded": model is not None}), 200
-
-
-# # Serve React App
-# @app.route('/', defaults={'path': ''})
-# @app.route('/<path:path>')
-# def serve(path):
-#     if path != "" and os.path.exists(app.static_folder + '/' + path):
-#         return send_from_directory(app.static_folder, path)
-#     else:
-#         return send_from_directory(app.static_folder, 'index.html')
-
+    return jsonify({"message": "Backend is working!", "model_loaded": model_loaded_successfully}), 200
 
 if __name__ == '__main__':
-    load_model()
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
