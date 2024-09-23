@@ -1,0 +1,13 @@
+services:
+     - type: web
+       name: paho-backend
+       env: python
+       buildCommand: pip install -r requirements.txt
+       startCommand: python app.py
+       repo: https://github.com/charlesxy77/PahoProject.git
+       branch: master
+       envVars:
+         - key: PYTHON_VERSION
+           value: 3.10.12
+         - key: DATABASE_URL
+           sync: false
